@@ -3,7 +3,7 @@ using System.Text;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 
-namespace ImageOpenCV.NlMeans
+namespace ImageOpenCV.NlMeansColored
 {
 	public class Start : IMain
 	{
@@ -26,8 +26,8 @@ namespace ImageOpenCV.NlMeans
 			var outData = new Mat(imgData.Size,imgData.Depth,imgData.NumberOfChannels);
 
 			Log.Message("Denoising using "+nameof(NlMeans));
-			CvInvoke.FastNlMeansDenoising(imgData,outData,
-				(float)O.H,O.TemplateWindowSize,O.SearchWindowSize);
+			CvInvoke.FastNlMeansDenoisingColored(imgData,outData,
+				(float)O.H,(float)O.HColor,O.TemplateWindowSize,O.SearchWindowSize);
 
 			Log.Message("Saving "+O.Dst);
 			outData.Save(O.Dst);

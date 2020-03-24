@@ -34,6 +34,7 @@ namespace ImageOpenCV
 
 			//map / parse method specific arguments
 			IMain func = Registry.Map(Options.Method);
+			// Log.Debug($"M = {Options.Method} F = {func != null} AL = {pruned.Length}");
 			if (func == null || !func.ParseArgs(pruned)) {
 				return;
 			}

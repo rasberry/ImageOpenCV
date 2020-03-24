@@ -23,14 +23,13 @@ function build() {
 		pushd src
 		dotnet build -p:Platform="x64"
 		dotnet publish
-		echo "$PWD"
 		cp "bin/Debug/netcoreapp2.2/publish/x64/libcvextern.so" "bin/Debug/netcoreapp2.2/publish"
 		popd
 	fi
 }
 
 function run() {
-	build
+	# build
 	if [ "$iswin" -eq 1 ]; then
 		cd "src/bin/Debug/netcoreapp2.2"
 		"$dotnetcmd" exec ImageOpenCV.dll "$@"

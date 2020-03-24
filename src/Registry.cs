@@ -11,7 +11,7 @@ namespace ImageOpenCV
 			case PickMethod.NlMeans:
 				return new NlMeans.Start();
 			case PickMethod.NlMeansColored:
-				return null;
+				return new NlMeansColored.Start();
 			case PickMethod.Dct:
 				return null;
 			case PickMethod.TVL1:
