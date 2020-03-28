@@ -4,6 +4,12 @@ using System.Linq;
 
 namespace ImageOpenCV
 {
+	public enum Result {
+		Missing = 0,
+		Invalid = 1,
+		Good = 2
+	}
+
 	public sealed class Params
 	{
 		public Params(string[] args)
@@ -18,45 +24,49 @@ namespace ImageOpenCV
 			return Args.ToArray();
 		}
 
-		public bool Has(string @switch)
+		// check for existance of a single parameter
+		public Result Has(string @switch)
 		{
 			int i = Args.IndexOf(@switch);
 			if (i != -1) {
 				Args.RemoveAt(i);
 			}
-			return i != -1;
+			return i != -1 ? Result.Good : Result.Missing;
 		}
 
-		public bool Has(out string val, string def = null)
+		// check for a non-qualified (leftover) parameter
+		public Result Has(out string val, string def = null)
 		{
 			val = def;
-			if (Args.Count <= 0) { return false; }
+			if (Args.Count <= 0) { return Result.Missing; }
 			val = Args[0];
 			Args.RemoveAt(0);
-			return true;
+			return Result.Good;
 		}
 
-		public bool Default<T>(string @switch,out T val,T def = default(T)) where T : IConvertible
+		//find or default a parameter with one argument
+		public Result Default<T>(string @switch,out T val,T def = default(T)) where T : IConvertible
 		{
 			val = def;
 			int i = Args.IndexOf(@switch);
 			if (i == -1) {
-				return true;
+				return Result.Missing;
 			}
 			if (i+1 >= Args.Count) {
 				Tell.MissingArgument(@switch);
-				return false;
+				return Result.Invalid;
 			}
 			if (!Aids.TryParse(Args[i+1],out val)) {
 				Tell.CouldNotParse(@switch,Args[i+1]);
-				return false;
+				return Result.Invalid;
 			}
 			Args.RemoveAt(i+1);
 			Args.RemoveAt(i);
-			return true;
+			return Result.Good;
 		}
 
-		public bool Default<T,U>(string @switch,out T tval, out U uval,
+		//find or default a parameter with two arguments
+		public Result Default<T,U>(string @switch,out T tval, out U uval,
 			T tdef = default(T), U udef = default(U))
 			where T : IConvertible where U : IConvertible
 		{
@@ -64,64 +74,82 @@ namespace ImageOpenCV
 			uval = udef;
 			int i = Args.IndexOf(@switch);
 			if (i == -1) {
-				return true;
+				return Result.Missing;
 			}
 			if (i+2 >= Args.Count) {
 				Tell.MissingArgument(@switch);
-				return false;
+				return Result.Invalid;
 			}
 			if (!Aids.TryParse(Args[i+1],out tval)) {
 				Tell.CouldNotParse(@switch,Args[i+1]);
-				return false;
+				return Result.Invalid;
 			}
 			if (!Aids.TryParse(Args[i+2],out uval)) {
 				Tell.CouldNotParse(@switch,Args[i+2]);
-				return false;
+				return Result.Invalid;
 			}
 			Args.RemoveAt(i+2);
 			Args.RemoveAt(i+1);
 			Args.RemoveAt(i);
-			return true;
+			return Result.Good;
 		}
 
-		public bool Expect(out string val, string name)
+		public Result Expect(out string val, string name)
 		{
-			if (!Has(out val) || String.IsNullOrWhiteSpace(val)) {
+			if (Result.Good != Has(out val) || String.IsNullOrWhiteSpace(val)) {
 				Tell.MustProvideInput(name);
-				return false;
+				return Result.Invalid;
 			}
-			return true;
-		}
-		
-		public bool Expect(string @switch)
-		{
-			bool has = Has(@switch);
-			if (!has) {
-				Tell.MustProvideInput(@switch);
-				return false;
-			}
-			return true;
+			return Result.Good;
 		}
 
-		public bool Expect<T>(string @switch, out T val) where T : IConvertible
+		public Result Expect(string @switch)
 		{
-			bool has = Default(@switch,out val);
-			if (!has) {
-				Tell.MustProvideInput(@switch);
-				return false;
+			var has = Has(@switch);
+			if (Result.Good != has) {
+				if (has == Result.Missing) { Tell.MustProvideInput(@switch); }
+				return Result.Invalid;
 			}
-			return true;
+			return Result.Good;
 		}
 
-		public bool Expect<T,U>(string @switch, out T tval, out U uval)
+		public Result Expect<T>(string @switch, out T val) where T : IConvertible
+		{
+			var has = Default(@switch,out val);
+			if (Result.Good != has) {
+				if (has == Result.Missing) { Tell.MustProvideInput(@switch); }
+				return Result.Invalid;
+			}
+			return Result.Good;
+		}
+
+		public Result Expect<T,U>(string @switch, out T tval, out U uval)
 			where T : IConvertible where U : IConvertible
 		{
-			bool has = Default(@switch,out tval,out uval);
-			if (!has) {
-				Tell.MustProvideInput(@switch);
-				return false;
+			var has = Default(@switch,out tval,out uval);
+			if (Result.Good != has) {
+				if (has == Result.Missing) { Tell.MustProvideInput(@switch); }
+				return Result.Invalid;
 			}
-			return true;
+			return Result.Good;
+		}
+	}
+
+	public static class ParamsExtensions
+	{
+		public static bool IsGood(this Result r)
+		{
+			return r == Result.Good;
+		}
+
+		public static bool IsBad(this Result r)
+		{
+			return r != Result.Good;
+		}
+
+		public static bool IsInvalid(this Result r)
+		{
+			return r == Result.Invalid;
 		}
 	}
 }

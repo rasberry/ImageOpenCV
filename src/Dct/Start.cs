@@ -2,8 +2,9 @@ using System;
 using System.Text;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
+using Emgu.CV.XPhoto;
 
-namespace ImageOpenCV.NlMeans
+namespace ImageOpenCV.Dct
 {
 	public class Start : IMain
 	{
@@ -26,8 +27,7 @@ namespace ImageOpenCV.NlMeans
 			var outData = new Mat(imgData.Size,imgData.Depth,imgData.NumberOfChannels);
 
 			Log.Message("Denoising using "+Options.Which);
-			CvInvoke.FastNlMeansDenoising(imgData,outData,
-				(float)O.H,O.TemplateWindowSize,O.SearchWindowSize);
+			XPhotoInvoke.DctDenoising(imgData,outData,O.Sigma,O.BlockSize);
 
 			Log.Message("Saving "+O.Dst);
 			outData.Save(O.Dst);

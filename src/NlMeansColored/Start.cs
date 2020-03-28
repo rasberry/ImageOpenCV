@@ -25,7 +25,7 @@ namespace ImageOpenCV.NlMeansColored
 			var imgData = CvInvoke.Imread(O.Src,ImreadModes.AnyColor);
 			var outData = new Mat(imgData.Size,imgData.Depth,imgData.NumberOfChannels);
 
-			Log.Message("Denoising using "+nameof(NlMeans));
+			Log.Message("Denoising using "+Options.Which);
 			CvInvoke.FastNlMeansDenoisingColored(imgData,outData,
 				(float)O.H,(float)O.HColor,O.TemplateWindowSize,O.SearchWindowSize);
 

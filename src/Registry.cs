@@ -13,7 +13,7 @@ namespace ImageOpenCV
 			case PickMethod.NlMeansColored:
 				return new NlMeansColored.Start();
 			case PickMethod.Dct:
-				return null;
+				return new Dct.Start();
 			case PickMethod.TVL1:
 				return null;
 			case PickMethod.DFTForward:

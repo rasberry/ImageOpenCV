@@ -5,7 +5,7 @@ namespace ImageOpenCV.NlMeans
 {
 	public class Options
 	{
-		const PickMethod Which = PickMethod.NlMeans;
+		public const PickMethod Which = PickMethod.NlMeans;
 
 		public void Usage(StringBuilder sb)
 		{
@@ -32,11 +32,11 @@ namespace ImageOpenCV.NlMeans
 		{
 			var p = new Params(args);
 
-			if (!p.Default("-h",out H,3.0)) { return false; }
-			if (!p.Default("-t",out TemplateWindowSize,7)) { return false; }
-			if (!p.Default("-s",out SearchWindowSize,21)) { return false; }
-			if (!p.Expect(out Src,"input image")) { return false; }
-			if (!p.Has(out Dst)) {
+			if (p.Default("-h",out H,3.0).IsInvalid()) { return false; }
+			if (p.Default("-t",out TemplateWindowSize,7).IsInvalid()) { return false; }
+			if (p.Default("-s",out SearchWindowSize,21).IsInvalid()) { return false; }
+			if (p.Expect(out Src,"input image").IsBad()) { return false; }
+			if (p.Has(out Dst).IsBad()) {
 				Dst = Aids.GetOutputName(Which);
 			}
 			return true;
