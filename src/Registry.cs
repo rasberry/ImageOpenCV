@@ -15,7 +15,7 @@ namespace ImageOpenCV
 			case PickMethod.Dct:
 				return new Dct.Start();
 			case PickMethod.TVL1:
-				return null;
+				return new Tvl1.Start();
 			case PickMethod.DFTForward:
 				return null;
 			case PickMethod.DFTInverse:
