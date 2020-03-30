@@ -358,3 +358,4 @@ MigrationBackup/
 /*.jpg
 /*.txt
 !nuget-repo/*.*
+/stuff/
