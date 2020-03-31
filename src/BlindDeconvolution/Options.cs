@@ -6,7 +6,7 @@ namespace ImageOpenCV.BlindDeconvolution
 {
 	public class Options
 	{
-		public const PickMethod Which = PickMethod.BlindDeconvolution;
+		public const PickMethod Which = PickMethod.Prida;
 
 		public void Usage(StringBuilder sb)
 		{
@@ -15,7 +15,7 @@ namespace ImageOpenCV.BlindDeconvolution
 			sb
 				.WL()
 				.WL(0,$"{name} [options] (input image) [output image]")
-				.WL(1,"")
+				.WL(1,"Provably Robust Image Deconvolution Algorithm, a image deblurring algorithm that implements blind deconvolution")
 				.WL(0,"Options:")
 				.WL(1,"-l (double)"   ,"Lambda parameter")
 				.WL(1,"-k (int)"      ,"Kernel size parameter")
@@ -25,7 +25,6 @@ namespace ImageOpenCV.BlindDeconvolution
 		public string Src;
 		public string Dst;
 		public string DstKernel;
-		public int Channel;
 		public double Lambda;
 		public int KernelSize;
 		// public string PATH;

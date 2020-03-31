@@ -31,8 +31,8 @@ namespace ImageOpenCV.BlindDeconvolution
 	};
 
 	public struct output{
-		public List<Mat> fp;
-		public List<double> Mp, Np, MKp, NKp, lambdas;
+		public Mat[] fp;
+		public double[] Mp, Np, MKp, NKp, lambdas;
 		public int scales;
 	} ;
 
