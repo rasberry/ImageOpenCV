@@ -51,6 +51,7 @@ namespace ImageOpenCV.BlindDeconvolution
 		***********************************************/
 		(Mat,Mat) helper(Mat image)
 		{
+			//Log.Debug($"helper f={Helpers.MatDebug(image)}");
 			var uk = new uk_t();
 			var @params = new params_t();
 
@@ -83,12 +84,15 @@ namespace ImageOpenCV.BlindDeconvolution
 		*********************************************************************************************/
 		void blind_deconv(Mat f, double lambda, params_t @params, ref uk_t uk)
 		{
+			//Log.Debug($"blind_deconv f={Helpers.MatDebug(f)} uk.k={Helpers.MatDebug(uk.k)} uk.u={Helpers.MatDebug(uk.u)}");
 			f.ConvertTo(f,DepthType.Cv64F, 1.0/255.0);
 			int rpad = 0;
 			int cpad = 0;
 			if (f.Rows % 2 == 0) { rpad = 1; }
 			if (f.Cols % 2 == 0) { cpad = 1; }
-			Mat f3 = new Mat(f,new Rectangle(0,0,f.Rows - rpad,f.Cols - cpad));
+			//Mat f3 = new Mat(f,new Rectangle(0,0,f.Rows - rpad,f.Cols - cpad));
+			Mat f3 = new Mat(f,new Range(0,f.Rows-rpad),new Range(0,f.Cols-cpad));
+			//Helpers.LogMat(f3,"f3");
 			var ctf_params = new ctf_params_t {
 				lambdaMultiplier = 1.9,
 				maxLambda = 1.1e-1,
@@ -106,15 +110,18 @@ namespace ImageOpenCV.BlindDeconvolution
 		**********************************************************************************************/
 		void coarseToFine(Mat f, params_t blind_params, ctf_params_t @params, ref uk_t uk)
 		{
+			//Log.Debug($"coarseToFine f={Helpers.MatDebug(f)} uk.k={Helpers.MatDebug(uk.k)} uk.u={Helpers.MatDebug(uk.u)}");
 			double MK = blind_params.MK;
 			double NK = blind_params.NK;
 
 			Mat u = new Mat();
-			int top = (int)Math.Floor(MK/2);
-			int left = (int)Math.Floor(NK/2);
+			int top = (int)Math.Floor(MK/2.0);
+			int left = (int)Math.Floor(NK/2.0);
 			CvInvoke.CopyMakeBorder(f,u,top,top,left,left,BorderType.Replicate);
+			//Helpers.LogMat(f,"f");
+			//Helpers.LogMat(u,"u");
 
-			var k = Mat.Ones((int)MK,(int)NK,DepthType.Cv64F,1);
+			var k = Mat.Ones((int)NK,(int)MK,DepthType.Cv64F,1);
 			k = k / MK / NK;
 
 			var data = new input {
@@ -141,15 +148,16 @@ namespace ImageOpenCV.BlindDeconvolution
 
 				lambda = answer.lambdas[i];
 
-				CvInvoke.Resize(u,u,new Size((int)(Ns - NKs - 1), (int)(Ms + MKs - 1))); //,0,0,Inter.Linear);
+				//Log.Debug($"Ns={Ns} NKs={NKs} Ms={Ms} MKs={MKs} w={Ns + NKs - 1} h={Ms + MKs - 1}");
+				CvInvoke.Resize(u,u,new Size((int)(Ns + NKs - 1), (int)(Ms + MKs - 1))); //,0,0,Inter.Linear);
 				CvInvoke.Resize(k,k,new Size((int)NKs, (int)MKs)); //,0,0,Inter.Linear);
 
 				k = k / CvInvoke.Sum(k).V0;
 				blind_params.MK = MKs;
 				blind_params.NK = NKs;
 
+				Log.Message($"Working on Scale: {i+1} with lambda = {data.lambda} with pyramid_lambda = {lambda} and Kernel size {MKs}");
 				prida(fs, ref u, ref k, lambda, blind_params);
-				Console.WriteLine($"Working on Scale: {i+1} with lambda = {data.lambda} with pyramid_lambda = {lambda} and Kernel size {MKs}");
 			}
 
 			uk.u = u;
@@ -162,6 +170,8 @@ namespace ImageOpenCV.BlindDeconvolution
 		****************************************************************************************************************/
 		output buildPyramid(input data)
 		{
+			//Log.Debug($"buildPyramid");
+
 			double smallestScale = 3;
 			int scales = 1;
 			double mkpnext = data.MK;
@@ -209,6 +219,7 @@ namespace ImageOpenCV.BlindDeconvolution
 			answer.MKp[0] = data.MK;
 			answer.NKp[0] = data.NK;
 			answer.lambdas[0] = data.lambda;
+			//Helpers.LogMat(data.f,$"py - dst[0] = ");
 
 			//loop and fill the rest of the pyramid
 			for (int s = 1 ; s <scales; s++) {
@@ -226,8 +237,8 @@ namespace ImageOpenCV.BlindDeconvolution
 				if (answer.MKp[s] < smallestScale) { answer.MKp[s] = smallestScale; }
 
 				//Correct scaleFactor for kernel dimension correction
-				double factorM = answer.MKp[s-1]/answer.MKp[s];
-				double factorN = answer.NKp[s-1]/answer.NKp[s];
+				double factorM = answer.MKp[s-1] / answer.MKp[s];
+				double factorN = answer.NKp[s-1] / answer.NKp[s];
 
 				answer.Mp[s] = Math.Round(answer.Mp[s-1] / factorM);
 				answer.Np[s] = Math.Round(answer.Np[s-1] / factorN);
@@ -238,6 +249,7 @@ namespace ImageOpenCV.BlindDeconvolution
 
 				Mat dst = new Mat();
 				CvInvoke.Resize(data.f,dst,new Size((int)answer.Np[s],(int)answer.Mp[s])); //,0,0,Inter.Linear);
+				//Helpers.LogMat(dst,$"py - dst[{s}] = ");
 				answer.fp[s] = dst;
 			}
 
@@ -254,47 +266,54 @@ namespace ImageOpenCV.BlindDeconvolution
 		**********************************************************************************/
 		void prida(Mat f, ref Mat u, ref Mat k, double lambda, params_t @params)
 		{
+			//Log.Debug($"prida f={Helpers.MatDebug(f)} u={Helpers.MatDebug(u)} k={Helpers.MatDebug(k)}");
+
 			for (int i = 0; i < @params.niters; i++) {
 				Mat gradu = Mat.Zeros(
-					f.Cols + (int)@params.NK - 1,
 					f.Rows + (int)@params.MK - 1,
-					DepthType.Cv64F, 3
+					f.Cols + (int)@params.NK - 1,
+					DepthType.Cv64F, f.NumberOfChannels
 				);
 				int c = 0;
+				var pGradu = new Mat[f.NumberOfChannels];
 				VectorOfMat
-					pGradu = new VectorOfMat(),
 					pf = new VectorOfMat(),
 					pu = new VectorOfMat();
 
-				CvInvoke.Split(gradu,pGradu);
+				//CvInvoke.Split(gradu,pGradu);
 				CvInvoke.Split(f, pf);
 				CvInvoke.Split(u, pu);
 				while (c < f.NumberOfChannels) {
+					//Helpers.LogMat(pu[c],$"pu[{c}]");
 					Mat tmp = conv2(pu[c], k, ConvolutionType.VALID);
+					//Helpers.LogMat(tmp,"tmp");
+					//Helpers.LogMat(pf[c],$"pf[{c}]");
 					tmp = tmp - pf[c];
-					Mat rotk = Mat.Zeros(k.Width,k.Height,DepthType.Cv64F,1);
+					Mat rotk = Mat.Zeros(k.Height,k.Width,DepthType.Cv64F,1);
 					CvInvoke.Rotate(k, rotk, RotateFlags.Rotate180);
-					pGradu[c].SetTo(conv2(tmp, rotk, ConvolutionType.FULL));
+					Mat gTmp = conv2(tmp, rotk, ConvolutionType.FULL);
+					pGradu[c] = gTmp;
 					c++;
 				}
-				CvInvoke.Merge(pGradu,gradu);
+				CvInvoke.Merge(new VectorOfMat(pGradu),gradu);
 				c = 0;
 
-				Mat gradTV = Mat.Zeros(u.Width,u.Height,DepthType.Cv64F,1);
-				gradTVcc(u,ref gradTV);
+				var gradTV = gradTVcc(u);
+				//Helpers.LogMat(u,"u");
+				//Helpers.LogMat(gradTV,"gradTV");
 				gradu = (gradu - lambda * gradTV);
 
 				double minValu = 0;
 				double maxValu = 0;
-				MinMaxLoc(u, ref minValu, ref maxValu);
+				Helpers.MinMaxLoc(u, ref minValu, ref maxValu);
 
 				double minValgu = 0;
 				double maxValgu = 0;
-				MinMaxLoc(Abs(gradu), ref minValgu, ref maxValgu);
+				Helpers.MinMaxLoc(Helpers.Abs(gradu), ref minValgu, ref maxValgu);
 
 				double sf = 1e-3 * maxValu / Math.Max(1e-31, maxValgu);
 				Mat u_new = u - sf * gradu;
-				Mat gradk = Mat.Zeros(k.Width,k.Height,DepthType.Cv64F,1);
+				Mat gradk = Mat.Zeros(k.Height,k.Width,DepthType.Cv64F,1);
 
 				VectorOfMat
 					pff = new VectorOfMat(),
@@ -315,9 +334,9 @@ namespace ImageOpenCV.BlindDeconvolution
 				}
 
 				double minValk = 0, maxValk = 0;
-				MinMaxLoc(k, ref minValk, ref maxValk);
+				Helpers.MinMaxLoc(k, ref minValk, ref maxValk);
 				double minValgk = 0, maxValgk = 0;
-				MinMaxLoc(Abs(gradk), ref minValgk, ref maxValgk);
+				Helpers.MinMaxLoc(Helpers.Abs(gradk), ref minValgk, ref maxValgk);
 
 				double sh = 1e-3 * maxValk / Math.Max(1e-31, maxValgk);
 				double eps = double.Epsilon;
@@ -329,7 +348,7 @@ namespace ImageOpenCV.BlindDeconvolution
 				CvInvoke.Exp(expTmp,expTmp);
 
 				Mat tmp2 = new Mat();
-				Mat tmpbigM = InitFrom(expTmp,bigM);
+				Mat tmpbigM = Helpers.InitFrom(expTmp,bigM);
 				CvInvoke.Min(expTmp, tmpbigM, tmp2);
 				Mat MDS = new Mat();
 				CvInvoke.Multiply(k,tmp2,MDS);
@@ -341,38 +360,20 @@ namespace ImageOpenCV.BlindDeconvolution
 			}
 		}
 
-		static Mat Abs(Mat mat)
-		{
-			Mat copy = new Mat();
-			var zeros = Mat.Zeros(mat.Width,mat.Height,mat.Depth,mat.NumberOfChannels);
-			CvInvoke.AbsDiff(mat, zeros, copy);
-			return copy;
-		}
-
-		static void MinMaxLoc(IInputArray arr, ref double min, ref double max)
-		{
-			Point minP = Point.Empty;
-			Point maxP = Point.Empty;
-			CvInvoke.MinMaxLoc(arr, ref min, ref max, ref minP, ref maxP);
-		}
-
-		static Mat InitFrom(Mat f, double? value = null)
-		{
-			var m = new Mat(f.Width,f.Height,f.Depth,f.NumberOfChannels);
-			if (value.HasValue) {
-				m.SetTo(new MCvScalar(value.Value));
-			}
-			return m;
-		}
-
 		/**********************************************************************************************
 		* @param img The input img, Kernel The input kernel, type FULL or VALID, dest The output result
 		* Compute conv2 by calling filter2D.
 		************************************************************************************************/
 		Mat conv2(Mat img, Mat kernel, ConvolutionType type)
 		{
+			//Log.Debug($"conv2 img={Helpers.MatDebug(img)} kernel={Helpers.MatDebug(kernel)} type={type}");
+
 			Mat flipped_kernel = new Mat();
 			CvInvoke.Flip(kernel, flipped_kernel, FlipType.Horizontal | FlipType.Vertical);
+
+			//Helpers.LogMat(img,"img");
+			//Helpers.LogMat(kernel,"kernel");
+			//Helpers.LogMat(flipped_kernel,"flipped_kernel");
 
 			Point pad;
 			Mat padded;
@@ -390,15 +391,20 @@ namespace ImageOpenCV.BlindDeconvolution
 					img.Depth, img.NumberOfChannels
 				);
 				padded.SetTo(new ScalarArray(0));
-				img.CopyTo(new Mat(padded,new Rectangle(kernel.Rows - 1, kernel.Cols - 1, img.Cols, img.Rows)));
+				var paddTmp = new Mat(padded,new Rectangle(kernel.Rows - 1, kernel.Cols - 1, img.Cols, img.Rows));
+				//Helpers.LogMat(img,"img");
+				//Helpers.LogMat(paddTmp,"paddTmp");
+				img.CopyTo(paddTmp);
 				break;
 			default:
 				throw new NotSupportedException("Unsupported convolutional shape");
 			}
 			var region = new Rectangle( pad.X / 2, pad.Y / 2, padded.Cols - pad.X, padded.Rows - pad.Y);
-			Mat dest = new Mat();
+			Mat dest = Helpers.InitFrom(padded);
 			CvInvoke.Filter2D(padded, dest, flipped_kernel, new Point(-1, -1), 0, BorderType.Constant);
+			//Helpers.LogMat(dest,"before");
 			dest = new Mat(dest,region);
+			//Helpers.LogMat(dest,"after");
 			return dest;
 		}
 
@@ -406,39 +412,37 @@ namespace ImageOpenCV.BlindDeconvolution
 		* @param f The scaled input image. dest The result image.
 		* Calc total variation for image f
 		**********************************************************************************/
-		void gradTVcc(Mat f, ref Mat dest)
+		Mat gradTVcc(Mat f)
 		{
-			Mat fxforw = InitFrom(f);
+			Mat fxforw = Helpers.InitFrom(f);
 			new Mat(f,new Range(1,f.Rows), new Range(0,f.Cols)).CopyTo(fxforw);
 			CvInvoke.CopyMakeBorder(fxforw,fxforw,0,1,0,0,BorderType.Replicate);
 			fxforw = fxforw - f;
 
-			Mat fyforw = InitFrom(f);
+			Mat fyforw = Helpers.InitFrom(f);
 			new Mat(f,new Range(0,f.Rows), new Range(1,f.Cols)).CopyTo(fyforw);
 			CvInvoke.CopyMakeBorder(fyforw,fyforw,0,0,0,1,BorderType.Replicate);
 			fyforw = fyforw - f;
 
-			Mat fxback = InitFrom(f);
+			Mat fxback = Helpers.InitFrom(f);
 			new Mat(f,new Range(0,f.Rows-1),new Range(0,f.Cols)).CopyTo(fxback);
 			CvInvoke.CopyMakeBorder(fxback,fxback,1,0,0,0,BorderType.Replicate);
 
-			Mat fyback = InitFrom(f);
+			Mat fyback = Helpers.InitFrom(f);
 			new Mat(f,new Range(0,f.Rows),new Range(0,f.Cols-1)).CopyTo(fyback);
 			CvInvoke.CopyMakeBorder(fyback,fyback,0,0,1,0,BorderType.Replicate);
 
-			Mat fxmixd = InitFrom(f);
+			Mat fxmixd = Helpers.InitFrom(f);
 			new Mat(f,new Range(1,f.Rows),new Range(0,f.Cols-1)).CopyTo(fxmixd);
 			CvInvoke.CopyMakeBorder(fxmixd,fxmixd,0,1,1,0,BorderType.Replicate);
 			fxmixd = fxmixd - fyback;
 
-			Mat fymixd = InitFrom(f);
+			Mat fymixd = Helpers.InitFrom(f);
 			new Mat(f,new Range(0,f.Rows-1),new Range(1,f.Cols)).CopyTo(fymixd);
 			CvInvoke.CopyMakeBorder(fymixd,fymixd,1,0,0,1,BorderType.Replicate);
 			fymixd = fymixd - fxback;
 			fyback = f - fyback;
 			fxback = f - fxback;
-
-			dest = Mat.Zeros(f.Width,f.Height,DepthType.Cv64F,f.NumberOfChannels);
 
 			var pfxforw = fxforw.Split();
 			var pfyforw = fyforw.Split();
@@ -446,7 +450,7 @@ namespace ImageOpenCV.BlindDeconvolution
 			var pfyback = fyback.Split();
 			var pfxmixd = fxmixd.Split();
 			var pfymixd = fymixd.Split();
-			var pdest = dest.Split();
+			var pdest = new Mat[f.NumberOfChannels];
 
 			int c = 0;
 			while (c < f.NumberOfChannels) {
@@ -476,33 +480,35 @@ namespace ImageOpenCV.BlindDeconvolution
 				CvInvoke.Sqrt(powfxmixd + powfyback,sqtback);
 
 				Mat max1 = new Mat();
-				Mat maxsqtforw = 1e-3 * Mat.Ones(sqtforw.Width,sqtforw.Height,sqtforw.Depth,sqtforw.NumberOfChannels);
+				Mat maxsqtforw = 1e-3 * Mat.Ones(sqtforw.Height,sqtforw.Width,sqtforw.Depth,sqtforw.NumberOfChannels);
 				CvInvoke.Max(sqtforw, maxsqtforw, max1);
 
 				Mat max2 = new Mat();
-				Mat maxsqtmixed = 1e-3 * Mat.Ones(sqtmixed.Width,sqtmixed.Height,sqtmixed.Depth,sqtmixed.NumberOfChannels);
+				Mat maxsqtmixed = 1e-3 * Mat.Ones(sqtmixed.Height,sqtmixed.Width,sqtmixed.Depth,sqtmixed.NumberOfChannels);
 				CvInvoke.Max(sqtmixed, maxsqtmixed, max2);
 
 				Mat max3 = new Mat();
-				Mat maxsqtback = 1e-3 * Mat.Ones(sqtback.Width,sqtback.Height,sqtback.Depth,sqtback.NumberOfChannels);
+				Mat maxsqtback = 1e-3 * Mat.Ones(sqtback.Height,sqtback.Width,sqtback.Depth,sqtback.NumberOfChannels);
 				CvInvoke.Max(sqtback, maxsqtback, max3);
 
 				Mat pmax1 = new Mat();
 				CvInvoke.Divide(pfxforw[c] + pfyforw[c],max1,pmax1);
-				pdest[c].SetTo(pmax1);
+				pdest[c] = pmax1;
 
 				Mat pmax2 = new Mat();
 				CvInvoke.Divide(pfxback[c],max2,pmax2);
-				pdest[c].SetTo(pdest[c] - pmax2);
+				pdest[c] = pdest[c] - pmax2;
 
 				Mat pmax3 = new Mat();
 				CvInvoke.Divide(pfyback[c],max3,pmax3);
-				pdest[c].SetTo(pdest[c] - pmax3);
+				pdest[c] = pdest[c] - pmax3;
 
 				c++;
 			}
 
+			Mat dest = Mat.Zeros(f.Height,f.Height,DepthType.Cv64F,f.NumberOfChannels);
 			CvInvoke.Merge(new VectorOfMat(pdest),dest);
+			return dest;
 		}
 	}
 }
