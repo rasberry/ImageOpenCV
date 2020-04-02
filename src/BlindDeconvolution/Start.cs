@@ -52,23 +52,23 @@ namespace ImageOpenCV.BlindDeconvolution
 		(Mat,Mat) helper(Mat image)
 		{
 			//Log.Debug($"helper f={Helpers.MatDebug(image)}");
-			var uk = new uk_t();
+			//var uk = new uk_t();
 			var @params = new params_t();
 
 			@params.MK = O.KernelSize; // row
 			@params.NK = O.KernelSize; // col
-			@params.niters = 1000;
+			@params.niters = O.Iterations;
 
-			blind_deconv(image, O.Lambda, @params, ref uk);
+			var (u,k) = blind_deconv(image, O.Lambda, @params);
 
 			Mat tmpk = new Mat(), tmpu = new Mat();
-			uk.u.ConvertTo(tmpu, DepthType.Cv8U, 1.0*255.0);
+			u.ConvertTo(tmpu, DepthType.Cv8U, 1.0*255.0);
 			double ksml = 0, klag = 0;
 			Point psml = Point.Empty, plag = Point.Empty;
-			CvInvoke.MinMaxLoc(uk.k, ref ksml, ref klag, ref psml, ref plag);
+			CvInvoke.MinMaxLoc(k, ref ksml, ref klag, ref psml, ref plag);
 
-			tmpk = uk.k / klag;
-			uk.k.ConvertTo(tmpk, DepthType.Cv8U, 1.0*255.0);
+			tmpk = k / klag;
+			k.ConvertTo(tmpk, DepthType.Cv8U, 1.0*255.0);
 			CvInvoke.ApplyColorMap(tmpk,tmpk,ColorMapType.Bone);
 
 			return (tmpu,tmpk);
@@ -82,7 +82,7 @@ namespace ImageOpenCV.BlindDeconvolution
 		* Initialize parameters
 		* Call coarseToFine
 		*********************************************************************************************/
-		void blind_deconv(Mat f, double lambda, params_t @params, ref uk_t uk)
+		(Mat,Mat) blind_deconv(Mat f, double lambda, params_t @params)
 		{
 			//Log.Debug($"blind_deconv f={Helpers.MatDebug(f)} uk.k={Helpers.MatDebug(uk.k)} uk.u={Helpers.MatDebug(uk.u)}");
 			f.ConvertTo(f,DepthType.Cv64F, 1.0/255.0);
@@ -90,16 +90,16 @@ namespace ImageOpenCV.BlindDeconvolution
 			int cpad = 0;
 			if (f.Rows % 2 == 0) { rpad = 1; }
 			if (f.Cols % 2 == 0) { cpad = 1; }
-			//Mat f3 = new Mat(f,new Rectangle(0,0,f.Rows - rpad,f.Cols - cpad));
 			Mat f3 = new Mat(f,new Range(0,f.Rows-rpad),new Range(0,f.Cols-cpad));
 			//Helpers.LogMat(f3,"f3");
 			var ctf_params = new ctf_params_t {
 				lambdaMultiplier = 1.9,
-				maxLambda = 1.1e-1,
+				maxLambda = 0.11,
 				finalLambda = lambda,
 				kernelSizeMultiplier = 1.0
 			};
-			coarseToFine(f3,@params,ctf_params,ref uk);
+			var (u,k) = coarseToFine(f3,@params,ctf_params);
+			return (u,k);
 		}
 
 		/***********************************************************************************************
@@ -108,7 +108,7 @@ namespace ImageOpenCV.BlindDeconvolution
 		* Call buildPyrmaid
 		* For each layer in the pyrmaid, call Prida
 		**********************************************************************************************/
-		void coarseToFine(Mat f, params_t blind_params, ctf_params_t @params, ref uk_t uk)
+		(Mat,Mat) coarseToFine(Mat f, params_t blind_params, ctf_params_t @params)
 		{
 			//Log.Debug($"coarseToFine f={Helpers.MatDebug(f)} uk.k={Helpers.MatDebug(uk.k)} uk.u={Helpers.MatDebug(uk.u)}");
 			double MK = blind_params.MK;
@@ -136,17 +136,12 @@ namespace ImageOpenCV.BlindDeconvolution
 			var answer = buildPyramid(data);
 
 			for (int i = answer.scales-1; i >=0; i--) {
-				double Ms, Ns, MKs, NKs, lambda;
-				Mat fs;
-
-				Ms = answer.Mp[i];
-				Ns = answer.Np[i];
-
-				MKs = answer.MKp[i];
-				NKs = answer.NKp[i];
-				fs = answer.fp[i];
-
-				lambda = answer.lambdas[i];
+				double Ms = answer.Mp[i];
+				double Ns = answer.Np[i];
+				double MKs = answer.MKp[i];
+				double NKs = answer.NKp[i];
+				double lambda = answer.lambdas[i];
+				Mat fs = answer.fp[i];
 
 				//Log.Debug($"Ns={Ns} NKs={NKs} Ms={Ms} MKs={MKs} w={Ns + NKs - 1} h={Ms + MKs - 1}");
 				CvInvoke.Resize(u,u,new Size((int)(Ns + NKs - 1), (int)(Ms + MKs - 1))); //,0,0,Inter.Linear);
@@ -157,11 +152,10 @@ namespace ImageOpenCV.BlindDeconvolution
 				blind_params.NK = NKs;
 
 				Log.Message($"Working on Scale: {i+1} with lambda = {data.lambda} with pyramid_lambda = {lambda} and Kernel size {MKs}");
-				prida(fs, ref u, ref k, lambda, blind_params);
+				(u,k) = prida(fs, u, k, lambda, blind_params);
 			}
 
-			uk.u = u;
-			uk.k = k;
+			return (u,k);
 		}
 
 		/*****************************************************************************************************************
@@ -264,37 +258,34 @@ namespace ImageOpenCV.BlindDeconvolution
 		* Initialize gradu and gradk
 		* Loop for niters times, call conv2 and gradTVCC to get the result of u and k.
 		**********************************************************************************/
-		void prida(Mat f, ref Mat u, ref Mat k, double lambda, params_t @params)
+		(Mat,Mat) prida(Mat f, Mat u, Mat k, double lambda, params_t @params)
 		{
 			//Log.Debug($"prida f={Helpers.MatDebug(f)} u={Helpers.MatDebug(u)} k={Helpers.MatDebug(k)}");
 
 			for (int i = 0; i < @params.niters; i++) {
-				Mat gradu = Mat.Zeros(
-					f.Rows + (int)@params.MK - 1,
-					f.Cols + (int)@params.NK - 1,
-					DepthType.Cv64F, f.NumberOfChannels
-				);
-				int c = 0;
 				var pGradu = new Mat[f.NumberOfChannels];
 				VectorOfMat
 					pf = new VectorOfMat(),
 					pu = new VectorOfMat();
 
-				//CvInvoke.Split(gradu,pGradu);
 				CvInvoke.Split(f, pf);
 				CvInvoke.Split(u, pu);
+
+				int c = 0;
 				while (c < f.NumberOfChannels) {
 					//Helpers.LogMat(pu[c],$"pu[{c}]");
 					Mat tmp = conv2(pu[c], k, ConvolutionType.VALID);
 					//Helpers.LogMat(tmp,"tmp");
 					//Helpers.LogMat(pf[c],$"pf[{c}]");
 					tmp = tmp - pf[c];
+
 					Mat rotk = Mat.Zeros(k.Height,k.Width,DepthType.Cv64F,1);
 					CvInvoke.Rotate(k, rotk, RotateFlags.Rotate180);
 					Mat gTmp = conv2(tmp, rotk, ConvolutionType.FULL);
 					pGradu[c] = gTmp;
 					c++;
 				}
+				Mat gradu = new Mat();
 				CvInvoke.Merge(new VectorOfMat(pGradu),gradu);
 				c = 0;
 
@@ -357,7 +348,13 @@ namespace ImageOpenCV.BlindDeconvolution
 
 				u = u_new;
 				k = k_new;
+
+				//added to prevent memory from swinging wildly.
+				//c# doesn't use c++'s destruct on leave context so there's a ton of
+				// discarded Mats lying around - and figuring out usings is too much work
+				GC.Collect();
 			}
+			return (u,k);
 		}
 
 		/**********************************************************************************************
