@@ -354,8 +354,8 @@ MigrationBackup/
 
 # End of https://www.gitignore.io/api/csharp
 .vscode/
-/*.png
-/*.jpg
-/*.txt
+/*.[jJ][pP][gG]
+/*.[pP][nN][gG]
+/*.[tT][xX][tT]
 !nuget-repo/*.*
 /stuff/

@@ -16,11 +16,11 @@ namespace ImageOpenCV.BlindDeconvolution
 			return copy;
 		}
 
-		public static void MinMaxLoc(IInputArray arr, ref double min, ref double max)
+		public static (double,double) MinMaxLoc(IInputArray arr)
 		{
 			CvInvoke.MinMaxIdx(arr,out double minv,out double maxv,null,null);
 			//CvInvoke.MinMaxLoc(arr, ref minv, ref maxv, ref minP, ref maxP); //crashes
-			min = minv; max = maxv;
+			return (minv,maxv);
 		}
 
 		public static Mat InitFrom(Mat f, double? value = null)

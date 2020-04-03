@@ -39,6 +39,11 @@ function run() {
 	fi
 }
 
+function test() {
+	build
+	run 7 -l 0.0006 -k 19 "D:\\Projects\\Curr\\ImageOpenCV\\babies.png"
+}
+
 if [ -n "$1" ]; then
 	$1 "${@:2}"
 fi
