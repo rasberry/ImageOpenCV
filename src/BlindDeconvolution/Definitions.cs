@@ -10,11 +10,6 @@ namespace ImageOpenCV.BlindDeconvolution
 		public double finalLambda, kernelSizeMultiplier;
 	};
 
-	public struct uk_t {
-		public Mat u;
-		public Mat k;
-	};
-
 	public struct params_t {
 		public double MK;
 		public double NK;

@@ -62,7 +62,6 @@ namespace ImageOpenCV.BlindDeconvolution
 		(Mat,Mat) helper(Mat image)
 		{
 			//Log.Debug($"helper f={Helpers.MatDebug(image)}");
-			//var uk = new uk_t();
 			var @params = new params_t();
 
 			@params.MK = O.KernelSize; // row
