@@ -11,7 +11,8 @@ namespace ImageOpenCV
 		TVL1 = 4,
 		DFTForward = 5,
 		DFTInverse = 6,
-		Prida = 7
+		Prida = 7,
+		Bm3d = 8
 	}
 
 	public interface IMain

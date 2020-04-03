@@ -9,7 +9,7 @@ using Emgu.CV.XPhoto;
 
 // https://github.com/tianyishan/Blind_Deconvolution
 
-namespace ImageOpenCV.BlindDeconvolution
+namespace ImageOpenCV.Prida
 {
 	public class Start : IMain
 	{

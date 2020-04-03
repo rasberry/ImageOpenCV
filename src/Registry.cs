@@ -21,7 +21,7 @@ namespace ImageOpenCV
 			case PickMethod.DFTInverse:
 				return null;
 			case PickMethod.Prida:
-				return new BlindDeconvolution.Start();
+				return new Prida.Start();
 			}
 			return null;
 		}

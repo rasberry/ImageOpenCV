@@ -4,7 +4,7 @@ using System.Drawing;
 using Emgu.CV;
 using Emgu.CV.Structure;
 
-namespace ImageOpenCV.BlindDeconvolution
+namespace ImageOpenCV.Prida
 {
 	public static class Helpers
 	{

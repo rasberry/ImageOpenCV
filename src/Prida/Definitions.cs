@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Emgu.CV;
 
-namespace ImageOpenCV.BlindDeconvolution
+namespace ImageOpenCV.Prida
 {
 	public struct ctf_params_t {
 		public double lambdaMultiplier;
