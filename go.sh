@@ -41,7 +41,7 @@ function run() {
 
 function test() {
 	build
-	run 7 -l 0.0006 -k 19 "D:\\Projects\\Curr\\ImageOpenCV\\babies.png"
+	run 7 -l 0.0006 -k 19 "D:\\Projects\\Curr\\ImageOpenCV\\stuff\babies.png"
 }
 
 if [ -n "$1" ]; then

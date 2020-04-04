@@ -101,7 +101,7 @@ namespace ImageOpenCV
 
 		public static StringBuilder AppendWrap(this StringBuilder self, int offset, string m)
 		{
-			int w = Console.BufferWidth - 1 - offset;
+			int w = Console.IsOutputRedirected ? int.MaxValue : Console.BufferWidth - 1 - offset;
 			int c = 0;
 			int l = m.Length;
 
