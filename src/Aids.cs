@@ -128,7 +128,7 @@ namespace ImageOpenCV
 		//public static int IndexOf<T>(this T[] arr,T item)
 		//{
 		//	if (arr == null || arr.Length < 1) { return -1; }
-		//	
+		//
 		//	int found = -1;
 		//	for(int i=0; i<arr.Length; i++) {
 		//		if (arr[i].Equals(item)) { found = i; }

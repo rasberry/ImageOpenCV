@@ -22,6 +22,10 @@ namespace ImageOpenCV
 				return null;
 			case PickMethod.Prida:
 				return new Prida.Start();
+			case PickMethod.Bm3d:
+				//NOTE: This algorithm is patented and is excluded in this configuration;
+				// Set OPENCV_ENABLE_NONFREE CMake option and rebuild the library
+				return null; // new Bm3d.Start();
 			}
 			return null;
 		}

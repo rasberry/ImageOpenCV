@@ -41,5 +41,3 @@ namespace ImageOpenCV.Dct
 
 	}
 }
-
-// 0.0006 19
